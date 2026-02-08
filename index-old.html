@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Listing Reorganizer</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .input-section {
+            margin-bottom: 20px;
+        }
+
+        .input-section label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #444;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            resize: vertical;
+            transition: border-color 0.2s;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+
+        #inputListing {
+            height: 200px;
+        }
+
+        .outputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .outputs {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .output-box {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .output-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .output-header h3 {
+            color: #333;
+            font-size: 16px;
+        }
+
+        .copy-btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        .copy-btn:hover {
+            background: #0056b3;
+        }
+
+        .copy-btn.copied {
+            background: #28a745;
+        }
+
+        .output-box textarea {
+            height: 350px;
+            background: #fafafa;
+        }
+
+        .clear-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        .clear-btn:hover {
+            background: #c82333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Listing Reorganizer</h1>
+
+        <div class="input-section">
+            <label for="inputListing">Paste Listing Here:</label>
+            <textarea id="inputListing" placeholder="Paste your listing here..."></textarea>
+            <button class="clear-btn" onclick="clearAll()">Clear All</button>
+        </div>
+
+        <div class="outputs">
+            <div class="output-box">
+                <div class="output-header">
+                    <h3>Output 1 - Marketing</h3>
+                    <button class="copy-btn" onclick="copyOutput('output1', this)">Copy</button>
+                </div>
+                <textarea id="output1" readonly></textarea>
+            </div>
+
+            <div class="output-box">
+                <div class="output-header">
+                    <h3>Output 2 - Full Details</h3>
+                    <button class="copy-btn" onclick="copyOutput('output2', this)">Copy</button>
+                </div>
+                <textarea id="output2" readonly></textarea>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const inputEl = document.getElementById('inputListing');
+        const output1El = document.getElementById('output1');
+        const output2El = document.getElementById('output2');
+
+        inputEl.addEventListener('input', processListing);
+
+        function processListing() {
+            const input = inputEl.value.trim();
+            if (!input) {
+                output1El.value = '';
+                output2El.value = '';
+                return;
+            }
+
+            const parsed = parseListing(input);
+            output1El.value = generateOutput1(parsed);
+            output2El.value = generateOutput2(parsed);
+        }
+
+        function parseListing(text) {
+            const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+
+            const data = {
+                refCode: '',
+                saleType: '',
+                address: '',
+                cityName: '',
+                description: '',
+                additionalDetails: [],
+                incomeLabel: '',
+                incomeValue: '',
+                floorArea: '',
+                lotArea: '',
+                price: '',
+                ownerType: ''
+            };
+
+            for (const line of lines) {
+                // Reference code (e.g., G07398, G11484)
+                if (/^[A-Z]\d{4,}$/i.test(line)) {
+                    data.refCode = line;
+                    continue;
+                }
+
+                // Sale type
+                if (/^\*?(FOR SALE|FOR RENT)\*?$/i.test(line)) {
+                    data.saleType = line.replace(/\*/g, '').toUpperCase();
+                    continue;
+                }
+
+                // Address line (contains street indicators)
+                if (/\b(St\.|Street|Ave\.|Ave|Avenue|Brgy\.|Barangay|Village|Subdivision)\b/i.test(line) && !data.address) {
+                    // Remove building names and "in" prefix, then street number
+                    // e.g., "RLV Bldg in 345 Aguirre Ave, Paranaque" -> "Aguirre Ave, Paranaque"
+                    let addr = line;
+
+                    // Remove everything before "in [number]" pattern
+                    addr = addr.replace(/^.*?\bin\s+\d+\s+/i, '');
+
+                    // Remove street number from beginning
+                    addr = addr.replace(/^\d+\s+/, '');
+
+                    data.address = addr;
+
+                    // Extract city name - check for "City" suffix first, then last word
+                    const cityMatch = line.match(/(\w+)\s*City/i);
+                    if (cityMatch) {
+                        data.cityName = cityMatch[1] + 'City';
+                    } else {
+                        // Get last word (likely city name like Paranaque)
+                        const words = line.split(/[,\s]+/).filter(w => w);
+                        const lastWord = words[words.length - 1];
+                        if (lastWord && !/^\d+$/.test(lastWord)) {
+                            data.cityName = lastWord + 'City';
+                        }
+                    }
+                    continue;
+                }
+
+                // Monthly Income or Rental Income
+                if (/^(Monthly Income|Rental Income):/i.test(line)) {
+                    const match = line.match(/^(Monthly Income|Rental Income):/i);
+                    data.incomeLabel = match[1];
+                    data.incomeValue = line;
+                    continue;
+                }
+
+                // Floor Area
+                if (/^Floor Area:/i.test(line)) {
+                    data.floorArea = line;
+                    continue;
+                }
+
+                // Lot Area
+                if (/^Lot Area:/i.test(line)) {
+                    data.lotArea = line;
+                    continue;
+                }
+
+                // Price
+                if (/^Price:/i.test(line)) {
+                    data.price = line;
+                    continue;
+                }
+
+                // Owner type
+                if (/^Direct to/i.test(line)) {
+                    data.ownerType = line;
+                    continue;
+                }
+
+                // Skip links
+                if (/^(Photos|Google Map):/i.test(line) || /^https?:\/\//i.test(line)) {
+                    continue;
+                }
+
+                // Property description (first unmatched descriptive line after address)
+                if (!data.description && !data.refCode) {
+                    continue; // Skip lines before ref code
+                }
+
+                if (!data.description && data.address) {
+                    data.description = line;
+                    continue;
+                }
+
+                // Additional details (between description and floor area)
+                if (data.description && !data.floorArea) {
+                    data.additionalDetails.push(line);
+                }
+            }
+
+            return data;
+        }
+
+        function generateOutput1(data) {
+            let output = [];
+
+            if (data.address) output.push(data.address);
+            if (data.saleType && data.refCode) {
+                output.push(`${data.saleType} ${data.refCode}`);
+            }
+            output.push('==========');
+            output.push('');
+
+            if (data.description) output.push(data.description);
+
+            for (const detail of data.additionalDetails) {
+                output.push(detail);
+            }
+
+            if (data.incomeValue) {
+                output.push(`With ${data.incomeLabel}`);
+            }
+
+            if (data.floorArea) output.push(data.floorArea);
+            if (data.lotArea) output.push(data.lotArea);
+            if (data.ownerType) output.push(data.ownerType);
+
+            output.push('');
+            output.push('💎 Send us a PM for more details');
+            output.push('========');
+            output.push('Leslie  (Luxe Realty)');
+            output.push('Under PRC No. 32944');
+
+            let hashtags = '#KiuRealtyPh';
+            if (data.cityName) {
+                hashtags += ` #${data.cityName}`;
+            }
+            output.push(hashtags);
+
+            return output.join('\n');
+        }
+
+        function generateOutput2(data) {
+            let output = [];
+
+            if (data.address) output.push(data.address);
+            if (data.saleType && data.refCode) {
+                output.push(`${data.saleType} ${data.refCode}`);
+            }
+            output.push('==========');
+            output.push('');
+
+            if (data.description) output.push(data.description);
+
+            for (const detail of data.additionalDetails) {
+                output.push(detail);
+            }
+
+            if (data.incomeValue) {
+                output.push(`With ${data.incomeLabel}`);
+            }
+
+            if (data.floorArea) output.push(data.floorArea);
+            if (data.lotArea) output.push(data.lotArea);
+            if (data.ownerType) output.push(data.ownerType);
+
+            // Add actual income and price at bottom
+            if (data.incomeValue || data.price) {
+                output.push('');
+                if (data.incomeValue) output.push(data.incomeValue);
+                if (data.price) output.push(data.price);
+            }
+
+            return output.join('\n');
+        }
+
+        function copyOutput(outputId, btn) {
+            const textarea = document.getElementById(outputId);
+            navigator.clipboard.writeText(textarea.value).then(() => {
+                btn.textContent = 'Copied!';
+                btn.classList.add('copied');
+                setTimeout(() => {
+                    btn.textContent = 'Copy';
+                    btn.classList.remove('copied');
+                }, 2000);
+            });
+        }
+
+        function clearAll() {
+            inputEl.value = '';
+            output1El.value = '';
+            output2El.value = '';
+        }
+    </script>
+</body>
+</html>
