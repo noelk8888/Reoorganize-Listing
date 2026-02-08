@@ -4,9 +4,13 @@ import { GEMINI_PROMPT_PREFIX } from './constants';
 import { Button } from './components/Button';
 import { TextArea } from './components/TextArea';
 
+// Check if we're in production (Vercel) - API key not needed
+const isProduction = import.meta.env.PROD;
+
 function App() {
   const [inputText, setInputText] = useState<string>('');
   const [apiKey, setApiKey] = useState<string>(() => localStorage.getItem('gemini_api_key') || '');
+  const [showApiKey, setShowApiKey] = useState<boolean>(false);
   const [outputs, setOutputs] = useState<ReorganizedOutputs | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,8 +34,9 @@ function App() {
       return;
     }
 
-    if (!apiKey.trim()) {
-      setError('Please enter your Gemini API key.');
+    // Only require API key in development if not using serverless
+    if (!isProduction && !apiKey.trim()) {
+      setError('Please enter your Gemini API key (or deploy to Vercel).');
       return;
     }
 
@@ -43,7 +48,8 @@ function App() {
 
     try {
       const prompt = `${GEMINI_PROMPT_PREFIX}\n\nINPUT:\n${inputText}`;
-      const result = await reorganizeListing(prompt, apiKey);
+      // Use serverless API in production, direct API in development
+      const result = await reorganizeListing(prompt, isProduction ? undefined : apiKey);
       setOutputs(result);
     } catch (err: unknown) {
       console.error('Error reorganizing listing:', err);
@@ -155,20 +161,31 @@ function App() {
 
         {/* Input Section (At Bottom) */}
         <div className="bg-white shadow-xl rounded-2xl p-6 md:p-8">
-          {/* API Key Input */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Gemini API Key
-            </label>
-            <input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="Enter your Gemini API key..."
-              className="w-full p-3 border-2 border-gray-200 rounded-lg text-sm
-                focus:outline-none focus:border-indigo-400 transition-all"
-            />
-          </div>
+          {/* API Key Input - only show in development or if user wants to override */}
+          {!isProduction && (
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-medium text-gray-700">
+                  Gemini API Key
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowApiKey(!showApiKey)}
+                  className="text-xs text-indigo-500 hover:text-indigo-700"
+                >
+                  {showApiKey ? 'Hide' : 'Show'}
+                </button>
+              </div>
+              <input
+                type={showApiKey ? 'text' : 'password'}
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="Enter your Gemini API key..."
+                className="w-full p-3 border-2 border-gray-200 rounded-lg text-sm
+                  focus:outline-none focus:border-indigo-400 transition-all"
+              />
+            </div>
+          )}
 
           {/* Action Buttons */}
           <div className="flex gap-4 mb-4">
