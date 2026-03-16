@@ -15,6 +15,9 @@ function App() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [editedOutput1, setEditedOutput1] = useState<string>('');
+  const [editedOutput2, setEditedOutput2] = useState<string>('');
+
   const [copyFeedback1, setCopyFeedback1] = useState<string>('Copy');
   const [copyFeedback2, setCopyFeedback2] = useState<string>('Copy');
 
@@ -51,6 +54,8 @@ function App() {
       // Use serverless API in production, direct API in development
       const result = await reorganizeListing(prompt, isProduction ? undefined : apiKey);
       setOutputs(result);
+      setEditedOutput1(result.output1);
+      setEditedOutput2(result.output2);
     } catch (err: unknown) {
       console.error('Error reorganizing listing:', err);
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
@@ -82,6 +87,8 @@ function App() {
   const handleClear = useCallback(() => {
     setInputText('');
     setOutputs(null);
+    setEditedOutput1('');
+    setEditedOutput2('');
     setError(null);
     setCopyFeedback1('Copy');
     setCopyFeedback2('Copy');
@@ -115,21 +122,26 @@ function App() {
                 Output 1: Social Media
               </h2>
               <Button
-                onClick={() => handleCopy(outputs?.output1 || '', setCopyFeedback1, copyTimeout1Ref)}
-                disabled={!outputs?.output1 || isLoading}
+                onClick={() => handleCopy(editedOutput1, setCopyFeedback1, copyTimeout1Ref)}
+                disabled={!editedOutput1 || isLoading}
                 className={`px-4 py-2 text-sm font-semibold rounded-lg
                   ${copyFeedback1 === 'Copied!' ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
               >
                 {copyFeedback1}
               </Button>
             </div>
-            <div className="relative flex-1 bg-gray-50 border border-gray-200 rounded-xl p-5 text-sm md:text-base font-sans whitespace-pre-wrap overflow-auto min-h-[350px]">
+            <div className="relative flex-1">
               {isLoading && !outputs && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-50 bg-opacity-80 rounded-xl z-10">
                   <div className="animate-spin rounded-full h-10 w-10 border-4 border-indigo-500 border-t-transparent"></div>
                 </div>
               )}
-              {outputs?.output1 || <span className="text-gray-300 italic text-sm">Awaiting reorganization...</span>}
+              <textarea
+                value={editedOutput1}
+                onChange={(e) => setEditedOutput1(e.target.value)}
+                placeholder="Awaiting reorganization..."
+                className="w-full min-h-[350px] p-5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-sans resize-y focus:outline-none focus:border-indigo-400 focus:bg-white transition-all"
+              />
             </div>
           </div>
 
@@ -140,21 +152,26 @@ function App() {
                 Output 2: Client Version
               </h2>
               <Button
-                onClick={() => handleCopy(outputs?.output2 || '', setCopyFeedback2, copyTimeout2Ref)}
-                disabled={!outputs?.output2 || isLoading}
+                onClick={() => handleCopy(editedOutput2, setCopyFeedback2, copyTimeout2Ref)}
+                disabled={!editedOutput2 || isLoading}
                 className={`px-4 py-2 text-sm font-semibold rounded-lg
                   ${copyFeedback2 === 'Copied!' ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
               >
                 {copyFeedback2}
               </Button>
             </div>
-            <div className="relative flex-1 bg-gray-50 border border-gray-200 rounded-xl p-5 text-sm md:text-base font-sans whitespace-pre-wrap overflow-auto min-h-[350px]">
+            <div className="relative flex-1">
               {isLoading && !outputs && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-50 bg-opacity-80 rounded-xl z-10">
                   <div className="animate-spin rounded-full h-10 w-10 border-4 border-emerald-500 border-t-transparent"></div>
                 </div>
               )}
-              {outputs?.output2 || <span className="text-gray-300 italic text-sm">Awaiting reorganization...</span>}
+              <textarea
+                value={editedOutput2}
+                onChange={(e) => setEditedOutput2(e.target.value)}
+                placeholder="Awaiting reorganization..."
+                className="w-full min-h-[350px] p-5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-sans resize-y focus:outline-none focus:border-emerald-400 focus:bg-white transition-all"
+              />
             </div>
           </div>
         </div>
