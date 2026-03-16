@@ -234,7 +234,9 @@ function App() {
       </main>
 
       <footer className="w-full max-w-7xl text-center py-8 mt-4 text-gray-400 text-xs">
-        <p>&copy; {new Date().getFullYear()} Property Listing Reorganizer | Powered by Gemini AI</p>
+        <a href="https://luxe-edit-listing.vercel.app/add" target="_blank" rel="noopener noreferrer" className="hover:text-gray-600 transition-colors">
+          &copy; {new Date().getFullYear()} Kiu Realty PH Listing Reorganizer
+        </a>
       </footer>
     </div>
   );
