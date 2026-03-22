@@ -84,14 +84,20 @@ function App() {
     };
   }, []);
 
-  const handleClear = useCallback(() => {
-    setInputText('');
-    setOutputs(null);
-    setEditedOutput1('');
-    setEditedOutput2('');
-    setError(null);
-    setCopyFeedback1('Copy');
-    setCopyFeedback2('Copy');
+  const handlePaste = useCallback(async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      setInputText(text);
+      setOutputs(null);
+      setEditedOutput1('');
+      setEditedOutput2('');
+      setError(null);
+      setCopyFeedback1('Copy');
+      setCopyFeedback2('Copy');
+    } catch (err) {
+      console.error('Failed to read clipboard:', err);
+      setError('Failed to read clipboard. Please ensure you have given permission.');
+    }
   }, []);
 
   return (
@@ -214,11 +220,11 @@ function App() {
               {isLoading ? 'PROCESSING...' : 'REORGANIZE LISTING'}
             </Button>
             <Button
-              onClick={handleClear}
+              onClick={handlePaste}
               disabled={isLoading}
-              className="bg-red-500 hover:bg-red-600 text-white font-bold py-4 px-6 rounded-xl shadow-lg transform active:scale-95 focus:outline-none focus:ring-4 focus:ring-red-200"
+              className="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-4 px-6 rounded-xl shadow-lg transform active:scale-95 focus:outline-none focus:ring-4 focus:ring-indigo-200"
             >
-              Clear
+              Paste
             </Button>
           </div>
 
