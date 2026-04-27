@@ -51,8 +51,8 @@ function App() {
 
     try {
       const prompt = `${GEMINI_PROMPT_PREFIX}\n\nINPUT:\n${inputText}`;
-      // Use serverless API in production, direct API in development
-      const result = await reorganizeListing(prompt, isProduction ? undefined : apiKey);
+      // Use user's API key if provided, otherwise fallback to serverless API
+      const result = await reorganizeListing(prompt, apiKey.trim() || undefined);
       setOutputs(result);
       setEditedOutput1(result.output1);
       setEditedOutput2(result.output2);
@@ -184,31 +184,32 @@ function App() {
 
         {/* Input Section (At Bottom) */}
         <div className="bg-white shadow-xl rounded-2xl p-6 md:p-8">
-          {/* API Key Input - only show in development or if user wants to override */}
-          {!isProduction && (
-            <div className="mb-4">
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-sm font-medium text-gray-700">
-                  Gemini API Key
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setShowApiKey(!showApiKey)}
-                  className="text-xs text-indigo-500 hover:text-indigo-700"
-                >
-                  {showApiKey ? 'Hide' : 'Show'}
-                </button>
-              </div>
-              <input
-                type={showApiKey ? 'text' : 'password'}
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder="Enter your Gemini API key..."
-                className="w-full p-3 border-2 border-gray-200 rounded-lg text-sm
-                  focus:outline-none focus:border-indigo-400 transition-all"
-              />
+          {/* API Key Input - shown as an optional override */}
+          <div className="mb-6 p-4 bg-indigo-50 rounded-xl border border-indigo-100">
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-bold uppercase tracking-wider text-indigo-600">
+                Custom Gemini API Key (Optional)
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowApiKey(!showApiKey)}
+                className="text-xs text-indigo-500 hover:text-indigo-700 font-medium"
+              >
+                {showApiKey ? 'Hide' : 'Show'}
+              </button>
             </div>
-          )}
+            <p className="text-[10px] text-indigo-400 mb-2">
+              Enter your own key to avoid shared rate limits. <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="underline">Get one here for free.</a>
+            </p>
+            <input
+              type={showApiKey ? 'text' : 'password'}
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder={isProduction ? "Using shared system key... Paste your own to override" : "Enter your Gemini API key..."}
+              className="w-full p-3 bg-white border-2 border-indigo-100 rounded-lg text-sm
+                focus:outline-none focus:border-indigo-400 transition-all placeholder:text-indigo-200"
+            />
+          </div>
 
           {/* Action Buttons */}
           <div className="flex gap-4 mb-4">
@@ -217,7 +218,7 @@ function App() {
               disabled={isLoading}
               className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-6 rounded-xl shadow-lg transform active:scale-95 focus:outline-none focus:ring-4 focus:ring-indigo-200 text-lg"
             >
-              {isLoading ? 'PROCESSING...' : 'REORGANIZE LISTING'}
+              {isLoading ? 'REORGANIZING (RETRIES ENABLED)...' : 'REORGANIZE LISTING'}
             </Button>
             <Button
               onClick={handlePaste}
