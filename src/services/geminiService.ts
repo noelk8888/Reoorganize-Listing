@@ -7,7 +7,7 @@ export interface ReorganizedOutputs {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const MAX_RETRIES = 5;
-const BASE_DELAY_MS = 4000;
+const BASE_DELAY_MS = 2000;
 
 function isRetryableError(error: unknown): boolean {
   if (error instanceof Error) {
@@ -38,7 +38,7 @@ function isRateLimitError(error: unknown): boolean {
 /**
  * Wraps an async function with exponential backoff retry logic for rate limit and transient errors.
  */
-async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
+async function withRetry<T>(fn: () => Promise<T>, onRetry?: (attempt: number, delay: number) => void): Promise<T> {
   let lastError: unknown;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -50,6 +50,7 @@ async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
       if (isRetryableError(error) && attempt < MAX_RETRIES) {
         const delay = BASE_DELAY_MS * Math.pow(2, attempt);
         console.warn(`Transient error or rate limit hit. Retrying in ${delay}ms... (attempt ${attempt + 1}/${MAX_RETRIES})`);
+        if (onRetry) onRetry(attempt + 1, delay);
         await sleep(delay);
         continue;
       }
@@ -65,7 +66,7 @@ async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
 /**
  * Reorganizes a property listing using the serverless API (for production)
  */
-async function reorganizeViaApi(prompt: string): Promise<ReorganizedOutputs> {
+async function reorganizeViaApi(prompt: string, onRetry?: (attempt: number, delay: number) => void): Promise<ReorganizedOutputs> {
   return withRetry(async () => {
     const response = await fetch('/api/reorganize', {
       method: 'POST',
@@ -83,17 +84,17 @@ async function reorganizeViaApi(prompt: string): Promise<ReorganizedOutputs> {
         throw new Error(`429 Rate limit: ${error.error || 'Too many requests'}`);
       }
       
-      throw new Error(error.error || 'API request failed');
+      throw new Error(error.error || `API request failed with status ${response.status}`);
     }
 
     return response.json();
-  });
+  }, onRetry);
 }
 
 /**
  * Reorganizes a property listing using direct Gemini API (for local dev with API key)
  */
-async function reorganizeDirectly(prompt: string, apiKey: string): Promise<ReorganizedOutputs> {
+async function reorganizeDirectly(prompt: string, apiKey: string, onRetry?: (attempt: number, delay: number) => void): Promise<ReorganizedOutputs> {
   return withRetry(async () => {
     const ai = new GoogleGenAI({ apiKey });
 
@@ -111,19 +112,23 @@ async function reorganizeDirectly(prompt: string, apiKey: string): Promise<Reorg
     }
 
     return JSON.parse(text) as ReorganizedOutputs;
-  });
+  }, onRetry);
 }
 
 /**
  * Reorganizes a property listing text into two formats.
  * Uses serverless API if no apiKey provided, otherwise uses direct Gemini API.
  */
-export async function reorganizeListing(prompt: string, apiKey?: string): Promise<ReorganizedOutputs> {
+export async function reorganizeListing(
+  prompt: string, 
+  apiKey?: string, 
+  onRetry?: (attempt: number, delay: number) => void
+): Promise<ReorganizedOutputs> {
   try {
     if (apiKey) {
-      return await reorganizeDirectly(prompt, apiKey);
+      return await reorganizeDirectly(prompt, apiKey, onRetry);
     } else {
-      return await reorganizeViaApi(prompt);
+      return await reorganizeViaApi(prompt, onRetry);
     }
   } catch (error: unknown) {
     console.error('Reorganize failed:', error);

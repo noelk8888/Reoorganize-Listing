@@ -13,6 +13,7 @@ function App() {
   const [showApiKey, setShowApiKey] = useState<boolean>(false);
   const [outputs, setOutputs] = useState<ReorganizedOutputs | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [retryStatus, setRetryStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const [editedOutput1, setEditedOutput1] = useState<string>('');
@@ -44,6 +45,7 @@ function App() {
     }
 
     setIsLoading(true);
+    setRetryStatus(null);
     setError(null);
     setOutputs(null);
     setCopyFeedback1('Copy');
@@ -52,7 +54,13 @@ function App() {
     try {
       const prompt = `${GEMINI_PROMPT_PREFIX}\n\nINPUT:\n${inputText}`;
       // Use user's API key if provided, otherwise fallback to serverless API
-      const result = await reorganizeListing(prompt, apiKey.trim() || undefined);
+      const result = await reorganizeListing(
+        prompt, 
+        apiKey.trim() || undefined,
+        (attempt, delay) => {
+          setRetryStatus(`Busy... retrying in ${Math.round(delay/1000)}s (Attempt ${attempt}/5)`);
+        }
+      );
       setOutputs(result);
       setEditedOutput1(result.output1);
       setEditedOutput2(result.output2);
@@ -62,6 +70,7 @@ function App() {
       setError(`Failed to reorganize text: ${errorMessage}`);
     } finally {
       setIsLoading(false);
+      setRetryStatus(null);
     }
   }, [inputText, apiKey]);
 
@@ -218,7 +227,7 @@ function App() {
               disabled={isLoading}
               className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-6 rounded-xl shadow-lg transform active:scale-95 focus:outline-none focus:ring-4 focus:ring-indigo-200 text-lg"
             >
-              {isLoading ? 'REORGANIZING (RETRIES ENABLED)...' : 'REORGANIZE LISTING'}
+              {isLoading ? (retryStatus || 'REORGANIZING...') : 'REORGANIZE LISTING'}
             </Button>
             <Button
               onClick={handlePaste}
