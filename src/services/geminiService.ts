@@ -1,4 +1,4 @@
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
 export interface ReorganizedOutputs {
   output1: string;
@@ -19,6 +19,7 @@ async function callGeminiDirect(prompt: string, apiKey: string): Promise<string>
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { responseMimeType: 'application/json' }
     }),
   });
 
