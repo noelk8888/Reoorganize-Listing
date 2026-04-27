@@ -193,37 +193,6 @@ function App() {
 
         {/* Input Section (At Bottom) */}
         <div className="bg-white shadow-xl rounded-2xl p-6 md:p-8">
-          {/* API Key Input - shown as an optional override */}
-          <div className="mb-6 p-4 bg-indigo-50 rounded-xl border border-indigo-100">
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-bold uppercase tracking-wider text-indigo-600">
-                Custom Gemini API Key (Optional)
-              </label>
-              <div className="flex gap-2 items-center">
-                <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${apiKey.trim() ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}>
-                  {apiKey.trim() ? '✅ PRIVATE KEY ACTIVE' : '⚠️ USING SHARED SYSTEM KEY'}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setShowApiKey(!showApiKey)}
-                  className="text-xs text-indigo-500 hover:text-indigo-700 font-medium"
-                >
-                  {showApiKey ? 'Hide' : 'Show'}
-                </button>
-              </div>
-            </div>
-            <p className="text-[10px] text-indigo-400 mb-2">
-              Enter your own key to avoid shared rate limits. <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="underline">Get one here for free.</a>
-            </p>
-            <input
-              type={showApiKey ? 'text' : 'password'}
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder={isProduction ? "Using shared system key... Paste your own to override" : "Enter your Gemini API key..."}
-              className="w-full p-3 bg-white border-2 border-indigo-100 rounded-lg text-sm
-                focus:outline-none focus:border-indigo-400 transition-all placeholder:text-indigo-200"
-            />
-          </div>
 
           {/* Action Buttons */}
           <div className="flex gap-4 mb-4">
@@ -259,6 +228,38 @@ function App() {
           &copy; {new Date().getFullYear()} Kiu Realty PH Listing Reorganizer
         </a>
       </footer>
+
+      {/* API Key Section - at the bottom of the page */}
+      <div className="w-full max-w-7xl mt-2 p-4 bg-indigo-50 rounded-xl border border-indigo-100">
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-xs font-bold uppercase tracking-wider text-indigo-600">
+            Custom Gemini API Key (Optional)
+          </label>
+          <div className="flex gap-2 items-center">
+            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${apiKey.trim() ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}>
+              {apiKey.trim() ? '✅ PRIVATE KEY ACTIVE' : '⚠️ USING SHARED SYSTEM KEY'}
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowApiKey(!showApiKey)}
+              className="text-xs text-indigo-500 hover:text-indigo-700 font-medium"
+            >
+              {showApiKey ? 'Hide' : 'Show'}
+            </button>
+          </div>
+        </div>
+        <p className="text-[10px] text-indigo-400 mb-2">
+          Enter your own key to avoid shared rate limits. <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="underline">Get one here for free.</a>
+        </p>
+        <input
+          type={showApiKey ? 'text' : 'password'}
+          value={apiKey}
+          onChange={(e) => setApiKey(e.target.value)}
+          placeholder={isProduction ? "Using shared system key... Paste your own to override" : "Enter your Gemini API key..."}
+          className="w-full p-3 bg-white border-2 border-indigo-100 rounded-lg text-sm
+            focus:outline-none focus:border-indigo-400 transition-all placeholder:text-indigo-200"
+        />
+      </div>
     </div>
   );
 }
