@@ -96,7 +96,8 @@ async function reorganizeViaApi(prompt: string, onRetry?: (attempt: number, dela
  */
 async function reorganizeDirectly(prompt: string, apiKey: string, onRetry?: (attempt: number, delay: number) => void): Promise<ReorganizedOutputs> {
   return withRetry(async () => {
-    const ai = new GoogleGenAI({ apiKey });
+    // Explicitly use the v1 API version
+    const ai = new GoogleGenAI({ apiKey, apiVersion: 'v1' });
 
     const response = await ai.models.generateContent({
       model: 'gemini-1.5-flash',
