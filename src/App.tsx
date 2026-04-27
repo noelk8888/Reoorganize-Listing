@@ -199,13 +199,18 @@ function App() {
               <label className="text-xs font-bold uppercase tracking-wider text-indigo-600">
                 Custom Gemini API Key (Optional)
               </label>
-              <button
-                type="button"
-                onClick={() => setShowApiKey(!showApiKey)}
-                className="text-xs text-indigo-500 hover:text-indigo-700 font-medium"
-              >
-                {showApiKey ? 'Hide' : 'Show'}
-              </button>
+              <div className="flex gap-2 items-center">
+                <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${apiKey.trim() ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}>
+                  {apiKey.trim() ? '✅ PRIVATE KEY ACTIVE' : '⚠️ USING SHARED SYSTEM KEY'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowApiKey(!showApiKey)}
+                  className="text-xs text-indigo-500 hover:text-indigo-700 font-medium"
+                >
+                  {showApiKey ? 'Hide' : 'Show'}
+                </button>
+              </div>
             </div>
             <p className="text-[10px] text-indigo-400 mb-2">
               Enter your own key to avoid shared rate limits. <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="underline">Get one here for free.</a>

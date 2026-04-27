@@ -7,7 +7,7 @@ const BASE_DELAY_MS = 2000; // 2s, 4s, 8s
 
 async function callGemini(prompt: string, apiKey: string): Promise<{ text: string, status?: number }> {
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
