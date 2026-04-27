@@ -96,15 +96,16 @@ async function reorganizeViaApi(prompt: string, onRetry?: (attempt: number, dela
  */
 async function reorganizeDirectly(prompt: string, apiKey: string, onRetry?: (attempt: number, delay: number) => void): Promise<ReorganizedOutputs> {
   return withRetry(async () => {
-    // Reverting to v1beta as it has better support for current features
-    const ai = new GoogleGenAI({ apiKey, apiVersion: 'v1beta' });
+    // Explicitly use the v1 stable API
+    const ai = new GoogleGenAI({ apiKey, apiVersion: 'v1' });
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-1.5-flash',
       contents: prompt,
       config: {
+        // Use the snake_case name which is more widely supported in v1 REST
         responseMimeType: 'application/json',
-      },
+      } as any,
     });
 
     const text = response.text;
