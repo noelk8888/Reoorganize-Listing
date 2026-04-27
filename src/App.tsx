@@ -57,8 +57,8 @@ function App() {
       const result = await reorganizeListing(
         prompt, 
         apiKey.trim() || undefined,
-        (attempt, delay) => {
-          setRetryStatus(`Busy... retrying in ${Math.round(delay/1000)}s (Attempt ${attempt}/5)`);
+        (attempt, delay, errorMsg) => {
+          setRetryStatus(`Retry ${attempt}/3 in ${Math.round(delay/1000)}s — ${errorMsg}`);
         }
       );
       setOutputs(result);

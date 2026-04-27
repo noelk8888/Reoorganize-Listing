@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai';
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
 export interface ReorganizedOutputs {
   output1: string;
@@ -6,29 +6,49 @@ export interface ReorganizedOutputs {
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-const MAX_RETRIES = 5;
-const BASE_DELAY_MS = 2000;
+const MAX_RETRIES = 3;
+const BASE_DELAY_MS = 3000;
 
-function isRetryableError(error: unknown): boolean {
-  if (error instanceof Error) {
-    const msg = error.message.toLowerCase();
-    // Retry on 429 (Rate Limit) and 5xx (Server Error)
-    return (
-      msg.includes('429') || 
-      msg.includes('rate limit') || 
-      msg.includes('resource exhausted') ||
-      msg.includes('500') ||
-      msg.includes('502') ||
-      msg.includes('503') ||
-      msg.includes('504') ||
-      msg.includes('api request failed with status 5')
-    );
+/**
+ * Calls the Gemini REST API directly from the browser using the user's private API key.
+ * Uses the exact same request format as api/reorganize.ts.
+ */
+async function callGeminiDirect(prompt: string, apiKey: string): Promise<string> {
+  const response = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+    }),
+  });
+
+  if (response.ok) {
+    const data = await response.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text) throw new Error('Gemini returned an empty response.');
+    return text;
   }
-  return false;
+
+  // Read error body for diagnosis
+  const errorBody = await response.json().catch(() => ({ error: { message: `HTTP ${response.status}` } }));
+  const errorMessage = errorBody?.error?.message || `HTTP ${response.status}`;
+
+  const err = new Error(`[${response.status}] ${errorMessage}`);
+  (err as any).httpStatus = response.status;
+  throw err;
 }
 
-function isRateLimitError(error: unknown): boolean {
+/**
+ * Determines whether an error is worth retrying (only genuine 429 and 5xx).
+ */
+function isRetryableError(error: unknown): boolean {
   if (error instanceof Error) {
+    const status = (error as any).httpStatus as number | undefined;
+    // Only retry on true rate limit (429) or server errors (5xx)
+    if (status !== undefined) {
+      return status === 429 || status >= 500;
+    }
+    // Fallback: check message for keywords (SDK path)
     const msg = error.message.toLowerCase();
     return msg.includes('429') || msg.includes('rate limit') || msg.includes('resource exhausted');
   }
@@ -36,9 +56,22 @@ function isRateLimitError(error: unknown): boolean {
 }
 
 /**
- * Wraps an async function with exponential backoff retry logic for rate limit and transient errors.
+ * Parses JSON from a Gemini text response, handling optional markdown code fences.
  */
-async function withRetry<T>(fn: () => Promise<T>, onRetry?: (attempt: number, delay: number) => void): Promise<T> {
+function parseGeminiJson(text: string): ReorganizedOutputs {
+  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  const jsonText = fenceMatch ? fenceMatch[1].trim() : text.trim();
+  return JSON.parse(jsonText) as ReorganizedOutputs;
+}
+
+/**
+ * Wraps an async function with exponential backoff retry logic.
+ * Only retries on genuine 429 and 5xx errors.
+ */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  onRetry?: (attempt: number, delay: number, errorMsg: string) => void
+): Promise<T> {
   let lastError: unknown;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -46,16 +79,17 @@ async function withRetry<T>(fn: () => Promise<T>, onRetry?: (attempt: number, de
       return await fn();
     } catch (error) {
       lastError = error;
-      
+
       if (isRetryableError(error) && attempt < MAX_RETRIES) {
         const delay = BASE_DELAY_MS * Math.pow(2, attempt);
-        console.warn(`Transient error or rate limit hit. Retrying in ${delay}ms... (attempt ${attempt + 1}/${MAX_RETRIES})`);
-        if (onRetry) onRetry(attempt + 1, delay);
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        console.warn(`Retryable error: ${errorMsg}. Retrying in ${delay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`);
+        if (onRetry) onRetry(attempt + 1, delay, errorMsg);
         await sleep(delay);
         continue;
       }
-      
-      // If it's not a retryable error, or we've exhausted retries, throw immediately
+
+      // Non-retryable error or exhausted retries — throw immediately
       throw error;
     }
   }
@@ -64,27 +98,24 @@ async function withRetry<T>(fn: () => Promise<T>, onRetry?: (attempt: number, de
 }
 
 /**
- * Reorganizes a property listing using the serverless API (for production)
+ * Reorganizes via the Vercel serverless function (no private key).
  */
-async function reorganizeViaApi(prompt: string, onRetry?: (attempt: number, delay: number) => void): Promise<ReorganizedOutputs> {
+async function reorganizeViaApi(
+  prompt: string,
+  onRetry?: (attempt: number, delay: number, errorMsg: string) => void
+): Promise<ReorganizedOutputs> {
   return withRetry(async () => {
     const response = await fetch('/api/reorganize', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prompt }),
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: `API request failed with status ${response.status}` }));
-      
-      // Pass the 429 status code clearly in the error message so `withRetry` can catch it
-      if (response.status === 429) {
-        throw new Error(`429 Rate limit: ${error.error || 'Too many requests'}`);
-      }
-      
-      throw new Error(error.error || `API request failed with status ${response.status}`);
+      const errorBody = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
+      const err = new Error(errorBody.error || `HTTP ${response.status}`);
+      (err as any).httpStatus = response.status;
+      throw err;
     }
 
     return response.json();
@@ -92,37 +123,27 @@ async function reorganizeViaApi(prompt: string, onRetry?: (attempt: number, dela
 }
 
 /**
- * Reorganizes a property listing using direct Gemini API (for local dev with API key)
+ * Reorganizes via a direct browser fetch using the user's private API key.
+ * Uses identical request format to the serverless function.
  */
-async function reorganizeDirectly(prompt: string, apiKey: string, onRetry?: (attempt: number, delay: number) => void): Promise<ReorganizedOutputs> {
+async function reorganizeDirectly(
+  prompt: string,
+  apiKey: string,
+  onRetry?: (attempt: number, delay: number, errorMsg: string) => void
+): Promise<ReorganizedOutputs> {
   return withRetry(async () => {
-    const ai = new GoogleGenAI({ apiKey, apiVersion: 'v1beta' });
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: prompt,
-    });
-
-    const text = response.text;
-    if (!text) {
-      throw new Error('Gemini API returned an empty response.');
-    }
-
-    // Extract JSON from response (handles plain JSON or markdown code blocks)
-    const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, text];
-    const jsonText = jsonMatch[1]?.trim() || text.trim();
-    return JSON.parse(jsonText) as ReorganizedOutputs;
+    const text = await callGeminiDirect(prompt, apiKey);
+    return parseGeminiJson(text);
   }, onRetry);
 }
 
 /**
- * Reorganizes a property listing text into two formats.
- * Uses serverless API if no apiKey provided, otherwise uses direct Gemini API.
+ * Main entry point. Uses private key (direct) if provided, otherwise serverless API.
  */
 export async function reorganizeListing(
-  prompt: string, 
-  apiKey?: string, 
-  onRetry?: (attempt: number, delay: number) => void
+  prompt: string,
+  apiKey?: string,
+  onRetry?: (attempt: number, delay: number, errorMsg: string) => void
 ): Promise<ReorganizedOutputs> {
   try {
     if (apiKey) {
@@ -132,12 +153,6 @@ export async function reorganizeListing(
     }
   } catch (error: unknown) {
     console.error('Reorganize failed:', error);
-    
-    // Check if we exhausted retries and it was a rate limit error
-    if (isRateLimitError(error)) {
-       throw new Error('Rate limit reached. Please wait a moment and try again.');
-    }
-    
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     throw new Error(errorMessage);
   }
